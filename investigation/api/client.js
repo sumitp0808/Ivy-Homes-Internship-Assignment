@@ -18,10 +18,6 @@ export class ApiClient {
     buildUrl(path, params = {}) {
         const url = new URL(path, this.baseUrl);
 
-        // Every API request uses our API key.
-        url.searchParams.set("api_key", this.apiKey);
-
-        // Add endpoint-specific query parameters.
         for (const [key, value] of Object.entries(params)) {
             if (value !== undefined && value !== null) {
                 url.searchParams.set(key, value);
@@ -31,6 +27,19 @@ export class ApiClient {
         return url;
     }
 
+    buildHeaders() {
+        const headers = {
+            "Content-Type": "application/json",
+            "X-API-Key": this.apiKey
+        };
+
+        if (this.token) {
+            headers.Authorization = `Bearer ${this.token}`;
+        }
+
+        return headers;
+    }
+
     async request(method, path, options = {}) {
         const {
             params = {},
@@ -38,14 +47,7 @@ export class ApiClient {
         } = options;
 
         const url = this.buildUrl(path, params);
-
-        const headers = {
-            "Content-Type": "application/json"
-        };
-
-        if (this.token) {
-            headers.Authorization = `Bearer ${this.token}`;
-        }
+        const headers = this.buildHeaders();
 
         const response = await fetch(url, {
             method,

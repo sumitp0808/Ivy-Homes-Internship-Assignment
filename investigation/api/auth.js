@@ -6,11 +6,11 @@ export async function login(client) {
         password: config.loginPassword
     });
 
-    if (!response.token) {
-        throw new Error("Login succeeded but no token was returned.");
+    if (!response.access_token) {
+        throw new Error("Login succeeded but no access_token was returned.");
     }
 
-    client.setToken(response.token);
+    client.setToken(response.access_token);
 
     return response;
 }
