@@ -1,17 +1,17 @@
-import { Link, useParams } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 
-import {
-    getAllListings,
-    getListingFromCollection,
-    getSimilarListingsFromCollection,
-} from "../services/listings";
+import ListingCard from "../components/ListingCard";
+
+import { getAllListings } from "../services/listings";
 
 import {
     getSavedListings,
     saveListing,
     removeSavedListing,
 } from "../services/saved";
+
+const PAGE_SIZE = 50;
 
 function formatPrice(price) {
     const value = Number(price);
@@ -21,133 +21,65 @@ function formatPrice(price) {
     }
 
     if (value >= 10000000) {
-        return `₹${(
-            value / 10000000
-        ).toFixed(2)} Cr`;
+        return `₹${(value / 10000000).toFixed(2)} Cr`;
     }
 
     if (value >= 100000) {
-        return `₹${(
-            value / 100000
-        ).toFixed(2)} L`;
+        return `₹${(value / 100000).toFixed(2)} L`;
     }
 
-    return `₹${value.toLocaleString(
-        "en-IN"
-    )}`;
+    return `₹${value.toLocaleString("en-IN")}`;
 }
 
-function formatValue(value) {
-    if (
-        value === undefined ||
-        value === null ||
-        value === ""
-    ) {
-        return "—";
-    }
+export default function Listings({ user }) {
+    const [allListings, setAllListings] = useState([]);
+    const [savedIds, setSavedIds] = useState(
+        new Set()
+    );
 
-    return String(value);
-}
+    const [page, setPage] = useState(1);
 
-export default function ListingDetail({
-    user,
-}) {
-    const { id } = useParams();
+    const [locality, setLocality] = useState("");
+    const [bedrooms, setBedrooms] = useState("");
+    const [minPrice, setMinPrice] = useState("");
+    const [maxPrice, setMaxPrice] = useState("");
+    const [furnishing, setFurnishing] = useState("");
 
-    const [listing, setListing] =
-        useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
 
-    const [similar, setSimilar] =
-        useState([]);
-
-    const [saved, setSaved] =
-        useState(false);
-
-    const [loading, setLoading] =
-        useState(true);
-
-    const [error, setError] =
-        useState("");
-
-    const [saveError, setSaveError] =
-        useState("");
-
+    /*
+     * Load the complete listings collection.
+     *
+     * The running API caps pages at 50 records and
+     * its reported total is not reliable, so
+     * getAllListings() handles pagination internally.
+     */
     useEffect(() => {
         let cancelled = false;
 
-        async function load() {
+        async function loadListings() {
             setLoading(true);
             setError("");
 
             try {
-                /*
-                 * The running API does not expose
-                 * GET /v1/listing/{id}.
-                 *
-                 * Therefore use the working
-                 * /v1/listings collection.
-                 */
-                const allListings =
+                const listings =
                     await getAllListings();
 
                 if (cancelled) {
                     return;
                 }
 
-                const found =
-                    allListings.find(
-                        (item) =>
-                            String(
-                                item.listing_id
-                            ) === String(id)
-                    ) || null;
-
-                if (!found) {
-                    setListing(null);
-                    setError(
-                        "Listing not found."
-                    );
-                    return;
-                }
-
-                setListing(found);
-
-                /*
-                 * Similar listings are calculated locally
-                 * because the running API does not expose
-                 * the documented similar-listings endpoint.
-                 */
-                const similarListings =
-                    getSimilarListingsFromCollection(
-                        found,
-                        allListings,
-                        4
-                    );
-
-                setSimilar(
-                    similarListings
+                setAllListings(
+                    Array.isArray(listings)
+                        ? listings
+                        : []
                 );
-
-                if (user?.email) {
-                    const savedListings =
-                        getSavedListings(
-                            user.email
-                        );
-
-                    setSaved(
-                        savedListings.some(
-                            (item) =>
-                                String(
-                                    item.listing_id
-                                ) === String(id)
-                        )
-                    );
-                }
             } catch (err) {
                 if (!cancelled) {
                     setError(
-                        err.message ||
-                            "Failed to load listing."
+                        err?.message ||
+                            "Failed to load listings."
                     );
                 }
             } finally {
@@ -157,539 +89,591 @@ export default function ListingDetail({
             }
         }
 
-        load();
+        loadListings();
 
         return () => {
             cancelled = true;
         };
-    }, [id, user?.email]);
+    }, []);
 
-    function toggleSave() {
-        if (!user?.email || !listing) {
+    /*
+     * Load saved listings for the current user.
+     */
+    useEffect(() => {
+        if (!user?.email) {
+            setSavedIds(new Set());
             return;
         }
 
-        setSaveError("");
+        const savedListings =
+            getSavedListings(user.email);
 
-        try {
-            if (saved) {
-                removeSavedListing(
-                    user.email,
-                    listing.listing_id
+        setSavedIds(
+            new Set(
+                savedListings.map(
+                    (listing) =>
+                        listing.listing_id
+                )
+            )
+        );
+    }, [user?.email]);
+
+    /*
+     * Build locality options from the actual
+     * retrieved dataset.
+     */
+    const localities = useMemo(() => {
+        return [
+            ...new Set(
+                allListings
+                    .map(
+                        (listing) =>
+                            listing.locality
+                    )
+                    .filter(Boolean)
+            ),
+        ].sort((a, b) =>
+            String(a).localeCompare(
+                String(b)
+            )
+        );
+    }, [allListings]);
+
+    /*
+     * Apply all filters locally.
+     *
+     * This intentionally does not depend on server-side
+     * filtering because the assignment requires the
+     * filters to actually work even when the server
+     * ignores documented parameters.
+     */
+    const filteredListings = useMemo(() => {
+        return allListings.filter(
+            (listing) => {
+                const listingLocality =
+                    String(
+                        listing.locality || ""
+                    ).toLowerCase();
+
+                const selectedLocality =
+                    String(
+                        locality || ""
+                    ).toLowerCase();
+
+                const listingBedrooms =
+                    Number(
+                        listing.bedroom
+                    );
+
+                const listingPrice =
+                    Number(
+                        listing.price
+                    );
+
+                const listingFurnishing =
+                    String(
+                        listing.furnishing ||
+                            ""
+                    ).toLowerCase();
+
+                const selectedFurnishing =
+                    String(
+                        furnishing || ""
+                    ).toLowerCase();
+
+                const matchesLocality =
+                    !selectedLocality ||
+                    listingLocality ===
+                        selectedLocality;
+
+                const matchesBedrooms =
+                    !bedrooms ||
+                    listingBedrooms ===
+                        Number(
+                            bedrooms
+                        );
+
+                const matchesMinPrice =
+                    !minPrice ||
+                    (
+                        Number.isFinite(
+                            listingPrice
+                        ) &&
+                        listingPrice >=
+                            Number(
+                                minPrice
+                            )
+                    );
+
+                const matchesMaxPrice =
+                    !maxPrice ||
+                    (
+                        Number.isFinite(
+                            listingPrice
+                        ) &&
+                        listingPrice <=
+                            Number(
+                                maxPrice
+                            )
+                    );
+
+                const matchesFurnishing =
+                    !selectedFurnishing ||
+                    listingFurnishing ===
+                        selectedFurnishing;
+
+                return (
+                    matchesLocality &&
+                    matchesBedrooms &&
+                    matchesMinPrice &&
+                    matchesMaxPrice &&
+                    matchesFurnishing
                 );
-
-                setSaved(false);
-            } else {
-                saveListing(
-                    user.email,
-                    listing
-                );
-
-                setSaved(true);
             }
-        } catch {
-            setSaveError(
-                "Unable to update saved listings."
+        );
+    }, [
+        allListings,
+        locality,
+        bedrooms,
+        minPrice,
+        maxPrice,
+        furnishing,
+    ]);
+
+    /*
+     * Whenever filters change, return to page 1.
+     */
+    useEffect(() => {
+        setPage(1);
+    }, [
+        locality,
+        bedrooms,
+        minPrice,
+        maxPrice,
+        furnishing,
+    ]);
+
+    const totalPages = Math.max(
+        1,
+        Math.ceil(
+            filteredListings.length /
+                PAGE_SIZE
+        )
+    );
+
+    const safePage = Math.min(
+        page,
+        totalPages
+    );
+
+    const visibleListings =
+        filteredListings.slice(
+            (safePage - 1) *
+                PAGE_SIZE,
+            safePage * PAGE_SIZE
+        );
+
+    function resetFilters() {
+        setLocality("");
+        setBedrooms("");
+        setMinPrice("");
+        setMaxPrice("");
+        setFurnishing("");
+        setPage(1);
+    }
+
+    function toggleSave(listing) {
+        if (!user?.email) {
+            return;
+        }
+
+        const id =
+            listing.listing_id;
+
+        if (savedIds.has(id)) {
+            removeSavedListing(
+                user.email,
+                id
             );
+
+            setSavedIds((current) => {
+                const next =
+                    new Set(current);
+
+                next.delete(id);
+
+                return next;
+            });
+        } else {
+            saveListing(
+                user.email,
+                listing
+            );
+
+            setSavedIds((current) => {
+                const next =
+                    new Set(current);
+
+                next.add(id);
+
+                return next;
+            });
         }
     }
 
     if (loading) {
         return (
-            <div className="mx-auto max-w-5xl">
-                <div className="mb-5 h-4 w-32 animate-pulse rounded bg-zinc-200" />
+            <div className="mx-auto max-w-7xl">
+                <div className="mb-6">
+                    <div className="h-8 w-40 animate-pulse rounded bg-zinc-200" />
 
-                <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white">
-                    <div className="space-y-4 border-b border-zinc-200 p-6 lg:p-8">
-                        <div className="h-3 w-24 animate-pulse rounded bg-zinc-200" />
-                        <div className="h-8 w-72 animate-pulse rounded bg-zinc-200" />
-                        <div className="h-4 w-40 animate-pulse rounded bg-zinc-200" />
-                    </div>
-
-                    <div className="grid gap-8 p-6 md:grid-cols-2 lg:p-8">
-                        <div className="space-y-6">
-                            {Array.from({
-                                length: 5,
-                            }).map((_, index) => (
-                                <div
-                                    key={index}
-                                    className="h-12 animate-pulse rounded bg-zinc-100"
-                                />
-                            ))}
-                        </div>
-
-                        <div className="space-y-6">
-                            {Array.from({
-                                length: 5,
-                            }).map((_, index) => (
-                                <div
-                                    key={index}
-                                    className="h-12 animate-pulse rounded bg-zinc-100"
-                                />
-                            ))}
-                        </div>
-                    </div>
+                    <div className="mt-2 h-4 w-64 animate-pulse rounded bg-zinc-200" />
                 </div>
-            </div>
-        );
-    }
 
-    if (error || !listing) {
-        return (
-            <div className="mx-auto max-w-5xl">
-                <Link
-                    to="/listings"
-                    className="text-sm font-medium text-zinc-500 hover:text-zinc-900"
-                >
-                    ← Back to listings
-                </Link>
+                <div className="mb-6 grid gap-4 rounded-2xl border border-zinc-200 bg-white p-5 md:grid-cols-5">
+                    {Array.from({
+                        length: 5,
+                    }).map((_, index) => (
+                        <div
+                            key={index}
+                            className="h-10 animate-pulse rounded-lg bg-zinc-100"
+                        />
+                    ))}
+                </div>
 
-                <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-6">
-                    <h1 className="font-semibold text-red-900">
-                        Listing unavailable
-                    </h1>
-
-                    <p className="mt-2 text-sm text-red-700">
-                        {error ||
-                            "The requested listing could not be found."}
-                    </p>
-
-                    <Link
-                        to="/listings"
-                        className="mt-4 inline-block rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
-                    >
-                        Browse listings
-                    </Link>
+                <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                    {Array.from({
+                        length: 6,
+                    }).map((_, index) => (
+                        <div
+                            key={index}
+                            className="h-64 animate-pulse rounded-2xl bg-zinc-100"
+                        />
+                    ))}
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="mx-auto max-w-5xl">
-            <Link
-                to="/listings"
-                className="text-sm font-medium text-zinc-500 hover:text-zinc-900"
-            >
-                ← Back to listings
-            </Link>
+        <div className="mx-auto max-w-7xl">
+            {/* HEADER */}
 
-            <div className="mt-5 overflow-hidden rounded-2xl border border-zinc-200 bg-white">
-                {/* HEADER */}
-
-                <div className="border-b border-zinc-200 p-6 lg:p-8">
-                    <div className="flex flex-col justify-between gap-5 md:flex-row md:items-start">
-                        <div>
-                            <div className="mb-2 text-xs uppercase tracking-wider text-zinc-400">
-                                {formatValue(
-                                    listing.website
-                                )}
-                            </div>
-
-                            <h1 className="text-2xl font-bold tracking-tight text-zinc-900 lg:text-3xl">
-                                {formatValue(
-                                    listing.apartment_name
-                                )}
-                            </h1>
-
-                            <p className="mt-2 capitalize text-zinc-500">
-                                {formatValue(
-                                    listing.locality
-                                )}
-                            </p>
-
-                            <div className="mt-4 flex flex-wrap gap-2">
-                                {listing.is_verified && (
-                                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
-                                        Verified
-                                    </span>
-                                )}
-
-                                {listing.is_live && (
-                                    <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
-                                        Live listing
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-
-                        <button
-                            onClick={
-                                toggleSave
-                            }
-                            className={`rounded-lg px-5 py-3 text-sm font-semibold transition ${
-                                saved
-                                    ? "bg-zinc-900 text-white hover:bg-zinc-800"
-                                    : "border border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50"
-                            }`}
-                        >
-                            {saved
-                                ? "♥ Saved"
-                                : "♡ Save listing"}
-                        </button>
-                    </div>
-
-                    {saveError && (
-                        <p className="mt-3 text-sm text-red-600">
-                            {saveError}
-                        </p>
-                    )}
-                </div>
-
-                {/* KEY METRICS */}
-
-                <div className="grid border-b border-zinc-200 sm:grid-cols-2 lg:grid-cols-4">
-                    <Metric
-                        label="Price"
-                        value={formatPrice(
-                            listing.price
-                        )}
-                    />
-
-                    <Metric
-                        label="Carpet area"
-                        value={`${Number(
-                            listing.carpet_area || 0
-                        ).toLocaleString(
-                            "en-IN"
-                        )} sqft`}
-                    />
-
-                    <Metric
-                        label="Configuration"
-                        value={`${formatValue(
-                            listing.bedroom
-                        )} BHK`}
-                    />
-
-                    <Metric
-                        label="Price / sqft"
-                        value={
-                            Number(
-                                listing.carpet_area
-                            ) > 0
-                                ? formatPrice(
-                                      Number(
-                                          listing.price
-                                      ) /
-                                          Number(
-                                              listing.carpet_area
-                                          )
-                                  )
-                                : "—"
-                        }
-                    />
-                </div>
-
-                {/* PROPERTY DETAILS */}
-
-                <div className="grid gap-10 p-6 md:grid-cols-2 lg:p-8">
-                    <div>
-                        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
-                            Property details
-                        </h2>
-
-                        <div className="mt-5 grid grid-cols-2 gap-x-6 gap-y-6">
-                            <Info
-                                label="Bedrooms"
-                                value={`${formatValue(
-                                    listing.bedroom
-                                )} BHK`}
-                            />
-
-                            <Info
-                                label="Bathrooms"
-                                value={formatValue(
-                                    listing.bathroom
-                                )}
-                            />
-
-                            <Info
-                                label="Balcony"
-                                value={formatValue(
-                                    listing.balcony
-                                )}
-                            />
-
-                            <Info
-                                label="Floor"
-                                value={`${formatValue(
-                                    listing.floor
-                                )} / ${formatValue(
-                                    listing.total_floors
-                                )}`}
-                            />
-
-                            <Info
-                                label="Carpet area"
-                                value={`${Number(
-                                    listing.carpet_area ||
-                                        0
-                                ).toLocaleString(
-                                    "en-IN"
-                                )} sqft`}
-                            />
-
-                            <Info
-                                label="Super built-up"
-                                value={`${Number(
-                                    listing.super_built_up_area ||
-                                        0
-                                ).toLocaleString(
-                                    "en-IN"
-                                )} sqft`}
-                            />
-
-                            <Info
-                                label="Furnishing"
-                                value={formatValue(
-                                    listing.furnishing
-                                )}
-                            />
-
-                            <Info
-                                label="Facing"
-                                value={formatValue(
-                                    listing.facing_direction
-                                )}
-                            />
-
-                            <Info
-                                label="Parking"
-                                value={formatValue(
-                                    listing.covered_parking
-                                )}
-                            />
-
-                            <Info
-                                label="Posted by"
-                                value={formatValue(
-                                    listing.posted_by
-                                )}
-                            />
-                        </div>
-                    </div>
-
-                    {/* LISTING INFORMATION */}
-
-                    <div>
-                        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
-                            Listing information
-                        </h2>
-
-                        <div className="mt-5 space-y-6">
-                            <Info
-                                label="Listing ID"
-                                value={
-                                    listing.listing_id
-                                }
-                            />
-
-                            <Info
-                                label="Website"
-                                value={
-                                    listing.website
-                                }
-                            />
-
-                            <Info
-                                label="Apartment"
-                                value={
-                                    listing.apartment_name
-                                }
-                            />
-
-                            <Info
-                                label="Locality"
-                                value={
-                                    listing.locality
-                                }
-                            />
-
-                            <Info
-                                label="Posted at"
-                                value={
-                                    listing.posted_at
-                                        ? new Date(
-                                              listing.posted_at
-                                          ).toLocaleString(
-                                              "en-IN"
-                                          )
-                                        : "—"
-                                }
-                            />
-
-                            <Info
-                                label="Verified"
-                                value={
-                                    listing.is_verified
-                                        ? "Yes"
-                                        : "No"
-                                }
-                            />
-
-                            <Info
-                                label="Live"
-                                value={
-                                    listing.is_live
-                                        ? "Yes"
-                                        : "No"
-                                }
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                {/* DESCRIPTION */}
-
-                {listing.description && (
-                    <div className="border-t border-zinc-200 p-6 lg:p-8">
-                        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
-                            Description
-                        </h2>
-
-                        <p className="mt-4 whitespace-pre-wrap leading-7 text-zinc-700">
-                            {listing.description}
-                        </p>
-                    </div>
-                )}
-            </div>
-
-            {/* SIMILAR LISTINGS */}
-
-            {similar.length > 0 && (
-                <section className="mt-8">
+            <div className="mb-6">
+                <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
                     <div>
                         <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                            You may also like
+                            Marketplace
                         </p>
 
-                        <h2 className="mt-1 text-xl font-bold text-zinc-900">
-                            Similar listings
+                        <h1 className="mt-1 text-3xl font-bold tracking-tight text-zinc-900">
+                            Listings
+                        </h1>
+
+                        <p className="mt-2 text-sm text-zinc-500">
+                            Browse properties available
+                            in your city.
+                        </p>
+                    </div>
+
+                    <div className="text-sm text-zinc-500">
+                        {filteredListings.length.toLocaleString(
+                            "en-IN"
+                        )}{" "}
+                        results
+                    </div>
+                </div>
+            </div>
+
+            {/* ERROR */}
+
+            {error && (
+                <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4">
+                    <p className="font-medium text-red-900">
+                        Failed to load listings
+                    </p>
+
+                    <p className="mt-1 text-sm text-red-700">
+                        {error}
+                    </p>
+                </div>
+            )}
+
+            {/* FILTERS */}
+
+            <section className="mb-7 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+                <div className="mb-4 flex items-center justify-between gap-4">
+                    <div>
+                        <h2 className="font-semibold text-zinc-900">
+                            Filters
                         </h2>
 
-                        <p className="mt-1 text-sm text-zinc-500">
-                            Properties with similar location,
-                            configuration, size and price.
+                        <p className="mt-1 text-xs text-zinc-500">
+                            Filters are applied locally to
+                            the retrieved dataset.
                         </p>
                     </div>
 
-                    <div className="mt-5 grid gap-4 md:grid-cols-2">
-                        {similar.map(
-                            (item) => (
-                                <Link
-                                    key={
-                                        item.listing_id
-                                    }
-                                    to={`/listings/${encodeURIComponent(
-                                        item.listing_id
-                                    )}`}
-                                    className="group rounded-xl border border-zinc-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-md"
-                                >
-                                    <div className="flex items-start justify-between gap-4">
-                                        <div>
-                                            <h3 className="font-semibold text-zinc-900 group-hover:text-zinc-700">
-                                                {
-                                                    item.apartment_name
-                                                }
-                                            </h3>
+                    <button
+                        type="button"
+                        onClick={resetFilters}
+                        className="text-sm font-medium text-zinc-500 hover:text-zinc-900"
+                    >
+                        Reset
+                    </button>
+                </div>
 
-                                            <p className="mt-1 text-sm capitalize text-zinc-500">
-                                                {
-                                                    item.locality
-                                                }
-                                            </p>
-                                        </div>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+                    {/* LOCALITY */}
 
-                                        {item.is_verified && (
-                                            <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">
-                                                Verified
-                                            </span>
-                                        )}
-                                    </div>
+                    <div>
+                        <label className="mb-1.5 block text-xs font-medium text-zinc-500">
+                            Locality
+                        </label>
 
-                                    <div className="mt-5 grid grid-cols-3 gap-3">
-                                        <div>
-                                            <div className="text-xs text-zinc-400">
-                                                Price
-                                            </div>
+                        <select
+                            value={locality}
+                            onChange={(event) =>
+                                setLocality(
+                                    event.target.value
+                                )
+                            }
+                            className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-zinc-500"
+                        >
+                            <option value="">
+                                All localities
+                            </option>
 
-                                            <div className="mt-1 text-sm font-semibold text-zinc-900">
-                                                {formatPrice(
-                                                    item.price
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <div className="text-xs text-zinc-400">
-                                                Area
-                                            </div>
-
-                                            <div className="mt-1 text-sm font-semibold text-zinc-900">
-                                                {Number(
-                                                    item.carpet_area ||
-                                                        0
-                                                ).toLocaleString(
-                                                    "en-IN"
-                                                )}{" "}
-                                                sqft
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <div className="text-xs text-zinc-400">
-                                                Type
-                                            </div>
-
-                                            <div className="mt-1 text-sm font-semibold text-zinc-900">
-                                                {
-                                                    item.bedroom
-                                                }{" "}
-                                                BHK
-                                            </div>
-                                        </div>
-                                    </div>
-                                </Link>
-                            )
-                        )}
+                            {localities.map(
+                                (item) => (
+                                    <option
+                                        key={item}
+                                        value={item}
+                                    >
+                                        {item}
+                                    </option>
+                                )
+                            )}
+                        </select>
                     </div>
-                </section>
+
+                    {/* BEDROOMS */}
+
+                    <div>
+                        <label className="mb-1.5 block text-xs font-medium text-zinc-500">
+                            Bedrooms
+                        </label>
+
+                        <select
+                            value={bedrooms}
+                            onChange={(event) =>
+                                setBedrooms(
+                                    event.target.value
+                                )
+                            }
+                            className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-zinc-500"
+                        >
+                            <option value="">
+                                All BHK
+                            </option>
+
+                            {[1, 2, 3, 4, 5].map(
+                                (value) => (
+                                    <option
+                                        key={value}
+                                        value={value}
+                                    >
+                                        {value} BHK
+                                    </option>
+                                )
+                            )}
+                        </select>
+                    </div>
+
+                    {/* MIN PRICE */}
+
+                    <div>
+                        <label className="mb-1.5 block text-xs font-medium text-zinc-500">
+                            Min price
+                        </label>
+
+                        <input
+                            type="number"
+                            min="0"
+                            value={minPrice}
+                            onChange={(event) =>
+                                setMinPrice(
+                                    event.target.value
+                                )
+                            }
+                            placeholder="₹ minimum"
+                            className="w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-sm outline-none transition focus:border-zinc-500"
+                        />
+                    </div>
+
+                    {/* MAX PRICE */}
+
+                    <div>
+                        <label className="mb-1.5 block text-xs font-medium text-zinc-500">
+                            Max price
+                        </label>
+
+                        <input
+                            type="number"
+                            min="0"
+                            value={maxPrice}
+                            onChange={(event) =>
+                                setMaxPrice(
+                                    event.target.value
+                                )
+                            }
+                            placeholder="₹ maximum"
+                            className="w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-sm outline-none transition focus:border-zinc-500"
+                        />
+                    </div>
+
+                    {/* FURNISHING */}
+
+                    <div>
+                        <label className="mb-1.5 block text-xs font-medium text-zinc-500">
+                            Furnishing
+                        </label>
+
+                        <select
+                            value={furnishing}
+                            onChange={(event) =>
+                                setFurnishing(
+                                    event.target.value
+                                )
+                            }
+                            className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-zinc-500"
+                        >
+                            <option value="">
+                                All furnishing
+                            </option>
+
+                            <option value="unfurnished">
+                                Unfurnished
+                            </option>
+
+                            <option value="semi-furnished">
+                                Semi-furnished
+                            </option>
+
+                            <option value="fully-furnished">
+                                Fully-furnished
+                            </option>
+                        </select>
+                    </div>
+                </div>
+            </section>
+
+            {/* EMPTY STATE */}
+
+            {visibleListings.length === 0 ? (
+                <div className="rounded-2xl border border-zinc-200 bg-white p-12 text-center">
+                    <h2 className="text-lg font-semibold text-zinc-900">
+                        No listings found
+                    </h2>
+
+                    <p className="mt-2 text-sm text-zinc-500">
+                        Try changing or resetting your
+                        filters.
+                    </p>
+
+                    <button
+                        type="button"
+                        onClick={resetFilters}
+                        className="mt-5 rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800"
+                    >
+                        Clear filters
+                    </button>
+                </div>
+            ) : (
+                <>
+                    {/* LISTINGS GRID */}
+
+                    <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                        {visibleListings.map((listing) => (
+                            <div
+                                key={listing.listing_id}
+                                className="relative"
+                            >
+                                <ListingCard
+                                    listing={listing}
+                                    saved={savedIds.has(
+                                        listing.listing_id
+                                    )}
+                                    onToggleSave={() =>
+                                        toggleSave(listing)
+                                    }
+                                />
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* PAGINATION */}
+
+                    <div className="mt-8 flex flex-col items-center justify-between gap-4 border-t border-zinc-200 pt-6 sm:flex-row">
+                        <p className="text-sm text-zinc-500">
+                            Showing{" "}
+                            <span className="font-medium text-zinc-800">
+                                {((safePage - 1) * PAGE_SIZE + 1).toLocaleString("en-IN")}
+                            </span>
+                            {" – "}
+                            <span className="font-medium text-zinc-800">
+                                {Math.min(
+                                    safePage * PAGE_SIZE,
+                                    filteredListings.length
+                                ).toLocaleString("en-IN")}
+                            </span>{" "}
+                            of{" "}
+                            <span className="font-medium text-zinc-800">
+                                {filteredListings.length.toLocaleString("en-IN")}
+                            </span>
+                        </p>
+
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                disabled={safePage <= 1}
+                                onClick={() =>
+                                    setPage((current) =>
+                                        Math.max(1, current - 1)
+                                    )
+                                }
+                                className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 disabled:cursor-not-allowed disabled:opacity-40 hover:bg-zinc-50"
+                            >
+                                Previous
+                            </button>
+
+                            <span className="px-2 text-sm text-zinc-500">
+                                Page{" "}
+                                <span className="font-semibold text-zinc-900">
+                                    {safePage}
+                                </span>{" "}
+                                of{" "}
+                                <span className="font-semibold text-zinc-900">
+                                    {totalPages}
+                                </span>
+                            </span>
+
+                            <button
+                                type="button"
+                                disabled={safePage >= totalPages}
+                                onClick={() =>
+                                    setPage((current) =>
+                                        Math.min(totalPages, current + 1)
+                                    )
+                                }
+                                className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 disabled:cursor-not-allowed disabled:opacity-40 hover:bg-zinc-50"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                </>
             )}
-        </div>
-    );
-}
-
-function Metric({
-    label,
-    value,
-}) {
-    return (
-        <div className="border-b border-zinc-200 p-5 last:border-b-0 sm:nth-[2n]:border-b-0 lg:border-b-0 lg:border-r lg:last:border-r-0">
-            <div className="text-xs text-zinc-400">
-                {label}
-            </div>
-
-            <div className="mt-1 text-lg font-bold text-zinc-900">
-                {value}
-            </div>
-        </div>
-    );
-}
-
-function Info({
-    label,
-    value,
-}) {
-    return (
-        <div>
-            <div className="text-xs text-zinc-400">
-                {label}
-            </div>
-
-            <div className="mt-1 break-words font-medium capitalize text-zinc-800">
-                {value}
-            </div>
         </div>
     );
 }

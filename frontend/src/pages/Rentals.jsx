@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getRentals } from "../services/api";
+import { Link } from "react-router-dom";
 
 function formatRent(value) {
     return `₹${Number(value).toLocaleString("en-IN")}/month`;
@@ -148,10 +149,13 @@ export default function Rentals() {
 
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {visible.map((rental) => (
-                    <article
-                        key={rental.listing_id}
-                        className="rounded-xl border border-zinc-200 bg-white p-5"
-                    >
+                    <Link
+    key={rental.listing_id}
+    to={`/rentals/${encodeURIComponent(
+        rental.listing_id
+    )}`}
+    className="block rounded-xl border border-zinc-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-md"
+>
                         <div className="text-xs uppercase tracking-wide text-zinc-400">
                             {rental.website}
                         </div>
@@ -197,7 +201,7 @@ export default function Rentals() {
                                 )}`}
                             />
                         </div>
-                    </article>
+                    </Link>
                 ))}
             </div>
 

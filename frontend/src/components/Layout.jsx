@@ -29,13 +29,8 @@ const navigation = [
     },
 ];
 
-export default function Layout({ children, user }) {
+export default function Layout({ children, onLogout, user }) {
     const navigate = useNavigate();
-
-    async function handleLogout() {
-        await logout();
-        navigate("/login");
-    }
 
     return (
         <div className="min-h-screen bg-zinc-50">
@@ -79,7 +74,7 @@ export default function Layout({ children, user }) {
                         </div>
 
                         <button
-                            onClick={handleLogout}
+                            onClick={onLogout}
                             className="w-full rounded-lg border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
                         >
                             Sign out

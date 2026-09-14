@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getProjects } from "../services/api";
+import { Link } from "react-router-dom";
 
 function formatArea(value) {
     return `${Number(value).toLocaleString("en-IN")} sqft`;
@@ -142,10 +143,13 @@ export default function Projects() {
 
             <div className="grid gap-5 md:grid-cols-2">
                 {visible.map((project) => (
-                    <article
-                        key={project.project_id}
-                        className="rounded-xl border border-zinc-200 bg-white p-6"
-                    >
+                    <Link
+    key={project.project_id}
+    to={`/projects/${encodeURIComponent(
+        project.project_id
+    )}`}
+    className="block rounded-xl border border-zinc-200 bg-white p-6 transition hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-md"
+>
                         <div className="flex justify-between gap-4">
                             <div>
                                 <div className="text-xs uppercase tracking-wide text-zinc-400">
@@ -205,7 +209,7 @@ export default function Projects() {
                                 ).toLocaleString("en-IN")}`}
                             />
                         </div>
-                    </article>
+                    </Link>
                 ))}
             </div>
 

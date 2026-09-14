@@ -4,6 +4,7 @@ import {
     Routes,
     useLocation,
 } from "react-router-dom";
+import { logout } from "./services/api";
 
 import Layout from "./components/Layout";
 
@@ -75,8 +76,12 @@ export default function App({
                         session={session}
                     >
                         <Layout
-                            user={session?.user}
-                        >
+    user={session?.user}
+    onLogout={async () => {
+        await logout();
+        setSession(null);
+    }}
+>
                             <Routes>
                                 {/* HOME */}
 

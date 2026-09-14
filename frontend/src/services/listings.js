@@ -58,18 +58,6 @@ export async function getAllListings(forceRefresh = false) {
     }
 }
 
-export async function getListingFromCollection(listingId) {
-    const listings = await getAllListings();
-
-    return (
-        listings.find(
-            (listing) =>
-                String(listing.listing_id) ===
-                String(listingId)
-        ) || null
-    );
-}
-
 /*
  * Local replacement for the unavailable
  * GET /v1/listings/{listing_id}/similar endpoint.
