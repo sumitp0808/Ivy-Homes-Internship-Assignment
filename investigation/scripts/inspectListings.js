@@ -6,7 +6,7 @@ const listings = JSON.parse(
 
 
 export function findCorruptListings(listings) {
-    return listings.filter((listing) =>
+    const corrupt = listings.filter((listing) =>
         listing.price <= 0 ||
         listing.carpet_area <= 0 ||
         listing.super_built_up_area <= 0 ||
@@ -14,4 +14,10 @@ export function findCorruptListings(listings) {
         listing.floor > listing.total_floors ||
         listing.total_floors <= 0
     );
+
+    const corruptIds = corrupt
+    .map((listing) => listing.listing_id)
+    .sort();
+
+    return corruptIds;
 }
