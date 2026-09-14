@@ -5,6 +5,10 @@ const API_KEY = import.meta.env.VITE_API_KEY;
 
 const SESSION_KEY = "ivy_session";
 
+/* =========================
+   SESSION STORAGE
+========================= */
+
 function getSession() {
     try {
         return JSON.parse(
@@ -29,6 +33,10 @@ export function getStoredSession() {
 export function clearSession() {
     localStorage.removeItem(SESSION_KEY);
 }
+
+/* =========================
+   REQUEST HELPERS
+========================= */
 
 function buildHeaders() {
     const session = getSession();
@@ -93,6 +101,78 @@ async function parseResponse(response) {
 }
 
 /* =========================
+   TOKEN REFRESH
+========================= */
+
+/*
+ * The running API issues:
+ *
+ * access_token  -> short-lived
+ * refresh_token -> used to obtain a new access token
+ *
+ * Therefore a 401 should first attempt a refresh
+ * before forcing the user to log in again.
+ */
+async function refreshAccessToken() {
+    const session = getSession();
+
+    if (!session?.refresh_token) {
+        return false;
+    }
+
+    try {
+        const response = await fetch(
+            buildUrl("/auth/refresh"),
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-API-Key": API_KEY,
+                },
+                body: JSON.stringify({
+                    refresh_token:
+                        session.refresh_token,
+                }),
+            }
+        );
+
+        if (!response.ok) {
+            clearSession();
+            return false;
+        }
+
+        const data = await response.json();
+
+        if (!data?.access_token) {
+            clearSession();
+            return false;
+        }
+
+        /*
+         * Keep the existing refresh token/user information
+         * if the refresh endpoint doesn't return them again.
+         */
+        const updatedSession = {
+            ...session,
+            ...data,
+            refresh_token:
+                data.refresh_token ||
+                session.refresh_token,
+            user:
+                data.user ||
+                session.user,
+        };
+
+        saveSession(updatedSession);
+
+        return true;
+    } catch {
+        clearSession();
+        return false;
+    }
+}
+
+/* =========================
    AUTH
 ========================= */
 
@@ -154,10 +234,14 @@ export async function logout() {
 
 async function request(
     path,
-    options = {}
+    options = {},
+    allowRefresh = true
 ) {
     const response = await fetch(
-        buildUrl(path, options.params || {}),
+        buildUrl(
+            path,
+            options.params || {}
+        ),
         {
             ...options,
             headers: {
@@ -166,6 +250,30 @@ async function request(
             },
         }
     );
+
+    /*
+     * Access token expired.
+     *
+     * Try exactly one refresh, then retry the
+     * original request once.
+     */
+    if (
+        response.status === 401 &&
+        allowRefresh
+    ) {
+        const refreshed =
+            await refreshAccessToken();
+
+        if (refreshed) {
+            return request(
+                path,
+                options,
+                false
+            );
+        }
+
+        clearSession();
+    }
 
     return parseResponse(response);
 }
@@ -210,6 +318,15 @@ export async function getRentals(params = {}) {
     });
 }
 
+export async function getRental(id) {
+    return request(
+        `/v1/rentals/${encodeURIComponent(id)}`,
+        {
+            method: "GET",
+        }
+    );
+}
+
 /* =========================
    PROJECTS
 ========================= */
@@ -231,34 +348,6 @@ export async function getProject(id) {
 }
 
 /* =========================
-   FAVOURITES
-========================= */
-
-export async function getFavourites() {
-    return request("/v1/favourites", {
-        method: "GET",
-    });
-}
-
-export async function addFavourite(listingId) {
-    return request("/v1/favourites", {
-        method: "POST",
-        body: JSON.stringify({
-            id: listingId,
-        }),
-    });
-}
-
-export async function removeFavourite(listingId) {
-    return request(
-        `/v1/favourites/${encodeURIComponent(listingId)}`,
-        {
-            method: "DELETE",
-        }
-    );
-}
-
-/* =========================
    ANALYTICS
 ========================= */
 
@@ -267,3 +356,4 @@ export async function getAnalytics() {
         method: "GET",
     });
 }
+

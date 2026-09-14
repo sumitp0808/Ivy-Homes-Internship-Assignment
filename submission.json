@@ -1,0 +1,351 @@
+{
+  "api_key": "IVY26-9F28544E02B4",
+  "candidate": {
+    "name": "Prajapati Sumit Ramsaran",
+    "email": "prajapati.20235132@mnnit.ac.in",
+    "repo_url": "https://github.com/sumitp0808/Ivy-Homes-Internship-Assignment",
+    "demo_url": "https://ivy-homes-internship-assignment.vercel.app/"
+  },
+  "answers": {
+    "total_listing_records": 3500,
+    "unique_properties": 3499,
+    "active_listings": 2792,
+    "corrupt_listing_ids": [
+  "100-6000323",
+  "100-6000338",
+  "100-6000907",
+  "100-6000922",
+  "100-6000991",
+  "100-6001161",
+  "100-6001461",
+  "100-6001508",
+  "100-6001572",
+  "100-6001959",
+  "100-6001968",
+  "100-6002060",
+  "100-6002071",
+  "100-6002229",
+  "100-6002422",
+  "100-6002458",
+  "100-6002951",
+  "100-6003015",
+  "100-6003361",
+  "DWE-6000010",
+  "DWE-6000210",
+  "DWE-6000214",
+  "DWE-6000465",
+  "DWE-6000653",
+  "DWE-6000668",
+  "DWE-6000679",
+  "DWE-6001015",
+  "DWE-6001227",
+  "DWE-6001394",
+  "DWE-6001574",
+  "DWE-6001797",
+  "DWE-6001837",
+  "DWE-6002050",
+  "DWE-6002233",
+  "DWE-6002663",
+  "DWE-6002824",
+  "DWE-6002846",
+  "DWE-6002964",
+  "DWE-6003087",
+  "DWE-6003108",
+  "DWE-6003270",
+  "MAG-6000017",
+  "MAG-6000203",
+  "MAG-6000264",
+  "MAG-6000299",
+  "MAG-6000392",
+  "MAG-6000453",
+  "MAG-6000492",
+  "MAG-6000527",
+  "MAG-6000630",
+  "MAG-6000631",
+  "MAG-6000707",
+  "MAG-6000713",
+  "MAG-6001135",
+  "MAG-6001231",
+  "MAG-6001243",
+  "MAG-6001263",
+  "MAG-6001474",
+  "MAG-6002191",
+  "MAG-6002295",
+  "MAG-6002341",
+  "MAG-6002380",
+  "MAG-6002467",
+  "MAG-6002480",
+  "MAG-6002769",
+  "MAG-6002834",
+  "MAG-6003024",
+  "MAG-6003135",
+  "MAG-6003398",
+  "SQU-6000303",
+  "SQU-6000398",
+  "SQU-6000541",
+  "SQU-6000871",
+  "SQU-6000963",
+  "SQU-6000990",
+  "SQU-6001040",
+  "SQU-6001165",
+  "SQU-6001257",
+  "SQU-6001285",
+  "SQU-6001477",
+  "SQU-6001541",
+  "SQU-6001580",
+  "SQU-6001619",
+  "SQU-6001863",
+  "SQU-6001880",
+  "SQU-6002272",
+  "SQU-6002340",
+  "SQU-6002613",
+  "SQU-6002991",
+  "SQU-6003020",
+  "SQU-6003030",
+  "SQU-6003044",
+  "SQU-6003096",
+  "SQU-6003131",
+  "SQU-6003312",
+  "SQU-6003388",
+  "ZER-6000056",
+  "ZER-6000152",
+  "ZER-6000158",
+  "ZER-6000236",
+  "ZER-6000468",
+  "ZER-6000495",
+  "ZER-6000573",
+  "ZER-6000595",
+  "ZER-6000664",
+  "ZER-6000669",
+  "ZER-6000715",
+  "ZER-6000872",
+  "ZER-6000951",
+  "ZER-6001234",
+  "ZER-6001274",
+  "ZER-6001337",
+  "ZER-6001611",
+  "ZER-6002019",
+  "ZER-6002230",
+  "ZER-6002481",
+  "ZER-6002543",
+  "ZER-6002666",
+  "ZER-6002720",
+  "ZER-6003274",
+  "ZER-6003403"
+],
+    "total_monthly_rent": 3733800,
+    "avg_price_per_sqft_2bhk": 26861.10,
+    "costliest_project": {
+      "project_id": "P60090",
+      "price_max_inr": 9890000
+    },
+    "listings_last_7_days": 129,
+    "fake_listing_ids": [
+      "100-6000578",
+      "100-6000678",
+      "100-6001599",
+      "MAG-6002472",
+      "MAG-6002941",
+      "SQU-6000395"
+    ],
+    "projects_with_wrong_listing_count": 295
+  },
+  "findings": [
+  {
+    "endpoint": "GET /v1/listing/{listing_id}",
+    "category": "endpoint_unavailable",
+    "documented": "The API reference documents this endpoint as the single-listing endpoint.",
+    "actual": "Returns 404 Not Found. A direct request for listing 100-6000047 failed.",
+    "how_found": "Tested the documented endpoint directly against the running API using a valid listing ID.",
+    "impact": "A listing detail page cannot retrieve an individual listing through the documented single-resource endpoint; the frontend must fall back to searching the listings collection.",
+    "evidence": [
+      "GET /v1/listing/100-6000047 -> 404"
+    ]
+  },
+  {
+    "endpoint": "GET /v1/listings/{listing_id}/similar",
+    "category": "endpoint_unavailable",
+    "documented": "The API reference documents this endpoint for retrieving up to ten comparable listings.",
+    "actual": "Returns 404 Not Found.",
+    "how_found": "Tested the documented similar-listings endpoint using listing ID 100-6000047.",
+    "impact": "The documented similar-listings API cannot be used for the recommendation strip; similar listings have to be derived locally from the listings collection.",
+    "evidence": [
+      "GET /v1/listings/100-6000047/similar -> 404"
+    ]
+  },
+  {
+    "endpoint": "GET /v1/analytics/summary",
+    "category": "endpoint_unavailable",
+    "documented": "The API reference documents this endpoint as providing pre-computed city-level aggregates for a dashboard.",
+    "actual": "The endpoint is unavailable on the running API.",
+    "how_found": "Tested the documented analytics summary endpoint against the running API.",
+    "impact": "A dashboard cannot rely on the documented pre-computed analytics endpoint and would need to calculate analytics from available collection data.",
+    "evidence": [
+      "GET /v1/analytics/summary -> endpoint unavailable"
+    ]
+  },
+  {
+    "endpoint": "GET /v1/favourites",
+    "category": "endpoint_unavailable",
+    "documented": "The API reference documents GET /v1/favourites for retrieving a logged-in user's saved listings.",
+    "actual": "Returns 404 Not Found on the running API.",
+    "how_found": "Tested the documented favourites endpoint while authenticated.",
+    "impact": "Favourites cannot currently be loaded through the documented API.",
+    "evidence": [
+      "GET /v1/favourites -> 404"
+    ]
+  },
+  {
+    "endpoint": "POST /v1/favourites",
+    "category": "endpoint_unavailable",
+    "documented": "The API reference documents POST /v1/favourites for saving a listing.",
+    "actual": "Returns 404 Not Found on the running API.",
+    "how_found": "Tested the documented favourites creation endpoint while authenticated.",
+    "impact": "Users cannot save favourites through the documented backend API.",
+    "evidence": [
+      "POST /v1/favourites -> 404"
+    ]
+  },
+  {
+    "endpoint": "DELETE /v1/favourites/{id}",
+    "category": "endpoint_unavailable",
+    "documented": "The API reference documents DELETE /v1/favourites/{id} for removing a saved listing.",
+    "actual": "Returns 404 Not Found on the running API.",
+    "how_found": "Tested the documented favourites deletion endpoint.",
+    "impact": "Favourites cannot be removed through the documented backend API.",
+    "evidence": [
+      "DELETE /v1/favourites/{id} -> 404"
+    ]
+  },
+  {
+    "endpoint": "GET /v1/rental/{id} and GET /v1/project/{id}",
+    "category": "endpoint_path_mismatch",
+    "documented": "The API reference uses plural resource paths: /v1/rentals/{listing_id} and /v1/projects/{project_id}.",
+    "actual": "The plural endpoints work, while singular /v1/rental/{id} and /v1/project/{id} return 404.",
+    "how_found": "Tested both documented plural paths and singular alternatives.",
+    "impact": "Clients must use the documented plural resource paths exactly; singular paths cannot be used for detail retrieval.",
+    "evidence": [
+      "GET /v1/rentals/R6000001 -> 200",
+      "GET /v1/rental/R6000001 -> 404",
+      "GET /v1/projects/P60001 -> 200",
+      "GET /v1/project/P60001 -> 404"
+    ]
+  },
+  {
+    "endpoint": "Collection pagination",
+    "category": "documentation_mismatch",
+    "documented": "The API reference states that collection endpoints use page and limit parameters, with a maximum limit of 200, and describes responses using page/page_size.",
+    "actual": "The running API returns offset/limit-style pagination and caps a page at 50 records even when a larger limit is requested. Full retrieval required incrementing offset by the number of records actually returned.",
+    "how_found": "Paginated the running listings, rentals, and projects collections and compared the response structure and returned page sizes with the API reference.",
+    "impact": "Clients following the documented pagination contract can retrieve incomplete data or paginate incorrectly. The running API's actual pagination behavior must be used.",
+    "evidence": [
+      "Running collection responses expose limit, offset, count, total, has_more and results.",
+      "Requested collection page sizes above 50 were capped at 50 records.",
+      "Full retrieval yielded 3500 listings, 1320 rentals and 400 projects."
+    ]
+  },
+  {
+    "endpoint": "GET /v1/listings",
+    "category": "data_integrity",
+    "documented": "The API reference describes total as the exact number of records matching the filters.",
+    "actual": "The running API reports total=3378 for listings, but exhaustive pagination returned 3500 records.",
+    "how_found": "Fetched the listings collection until the API returned no more records and compared the number retrieved with the reported total.",
+    "impact": "The reported total cannot safely be used as the sole termination condition when retrieving all records.",
+    "evidence": [
+      "Reported listings total: 3378",
+      "Exhaustively retrieved listing records: 3500"
+    ]
+  },
+  {
+    "endpoint": "GET /v1/rentals",
+    "category": "data_integrity",
+    "documented": "The API reference describes total as the exact number of records matching the filters.",
+    "actual": "The running API reports total=1274 for rentals, but exhaustive pagination returned 1320 records.",
+    "how_found": "Fetched the rentals collection until no additional records were returned and compared the result count with total.",
+    "impact": "Rental totals are inconsistent with the actual retrievable dataset.",
+    "evidence": [
+      "Reported rentals total: 1274",
+      "Exhaustively retrieved rental records: 1320"
+    ]
+  },
+  {
+    "endpoint": "GET /v1/projects",
+    "category": "data_integrity",
+    "documented": "The API reference describes total as the exact number of records matching the filters.",
+    "actual": "The running API reports total=386 for projects, but exhaustive pagination returned 400 records.",
+    "how_found": "Fetched the projects collection until no additional records were returned and compared the result count with total.",
+    "impact": "Project totals are inconsistent with the actual retrievable dataset.",
+    "evidence": [
+      "Reported projects total: 386",
+      "Exhaustively retrieved project records: 400"
+    ]
+  },
+  {
+    "endpoint": "GET /v1/projects",
+    "category": "data_integrity",
+    "documented": "The API reference states that project total_listings is recomputed and always agrees with GET /v1/listings?project_id=....",
+    "actual": "295 projects have a total_listings value that does not match the actual number of listings associated with that project in the retrieved listings dataset.",
+    "how_found": "Grouped all retrieved listings by project_id and compared the resulting counts against each project's total_listings field.",
+    "impact": "Project listing counts cannot be treated as authoritative for displaying inventory without cross-checking the listings collection.",
+    "evidence": [
+      "Projects checked: 400",
+      "Projects with mismatched total_listings: 295"
+    ]
+  },
+  {
+    "endpoint": "GET /v1/listings",
+    "category": "data_quality",
+    "documented": "Listings are expected to contain valid property measurements, prices and floor information.",
+    "actual": "121 listings contain one or more detected data-quality anomalies, including non-positive price/area values, carpet area greater than super built-up area, or floor greater than total floors.",
+    "how_found": "Applied validation rules across the complete retrieved listings dataset.",
+    "impact": "Raw listing records require validation before being used for pricing statistics, filtering or display.",
+    "evidence": [
+      "Total retrieved listings: 3500",
+      "Listings failing validation: 121"
+    ]
+  },
+  {
+    "endpoint": "GET /v1/listings",
+    "category": "data_quality",
+    "documented": "The listings collection represents property listings.",
+    "actual": "Six listings were identified as anomalous/fake based on extreme pricing or property attributes and the assignment's fake-listing criteria.",
+    "how_found": "Applied the assignment's fake-listing investigation criteria to the complete listings dataset.",
+    "impact": "These records should be excluded from pricing analysis and other aggregate calculations.",
+    "evidence": [
+      "100-6000578",
+      "100-6000678",
+      "100-6001599",
+      "MAG-6002472",
+      "MAG-6002941",
+      "SQU-6000395"
+    ]
+  },
+  {
+  "endpoint": "GET /v1/listings, GET /v1/rentals, GET /v1/projects",
+  "category": "pagination_limit_mismatch",
+  "documented": "The API reference specifies a maximum collection page size of 200.",
+  "actual": "The running API enforces an effective maximum page size of 50. Requests with limit values greater than 50 return at most 50 records.",
+  "how_found": "Tested collection endpoints with page-size requests above 50 and observed that the response was capped at 50 records.",
+  "impact": "Clients must paginate in batches of 50 or fewer. Assuming the documented maximum of 200 can lead to incorrect retrieval logic and incomplete datasets if pagination is implemented incorrectly.",
+  "evidence": [
+    "Requested limit > 50 -> maximum 50 records returned",
+    "Listings required pagination through 50-record batches",
+    "Rentals required pagination through 50-record batches",
+    "Projects required pagination through 50-record batches"
+  ]
+},
+  {
+  "endpoint": "Authentication / API key handling",
+  "category": "documentation_mismatch",
+  "documented": "The API reference instructs clients to provide the API key as a query parameter.",
+  "actual": "The running API expects the API key in the X-API-Key HTTP request header.",
+  "how_found": "Tested authentication/API requests using the documented query-parameter approach and then tested the X-API-Key header approach. Requests using the header were accepted, while the documented parameter-based approach did not authenticate correctly.",
+  "impact": "Following the API documentation literally prevents clients from authenticating successfully. The implementation must send the API key using the X-API-Key request header.",
+  "evidence": [
+    "Documented API-key location: query parameter",
+    "Working API-key location: X-API-Key header",
+    "Authentication succeeded after switching to the X-API-Key header"
+  ]
+}
+]
+}

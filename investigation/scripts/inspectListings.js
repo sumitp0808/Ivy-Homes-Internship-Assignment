@@ -21,3 +21,5 @@ export function findCorruptListings(listings) {
 
     return corruptIds;
 }
+
+console.log(JSON.stringify(findCorruptListings(listings), null, 2));

@@ -1,12 +1,16 @@
 import { Link, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
+
 import {
-    addFavourite,
     getListing,
     getSimilarListings,
-    getFavourites,
-    removeFavourite,
 } from "../services/api";
+
+import {
+    getSavedListings,
+    saveListing,
+    removeSavedListing,
+} from "../services/saved";
 
 function formatPrice(price) {
     if (price >= 10000000) {
@@ -20,61 +24,143 @@ function formatPrice(price) {
     return `₹${Number(price).toLocaleString("en-IN")}`;
 }
 
-export default function ListingDetail() {
+export default function ListingDetail({ user }) {
     const { id } = useParams();
 
     const [listing, setListing] = useState(null);
     const [similar, setSimilar] = useState([]);
     const [saved, setSaved] = useState(false);
+
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [saveError, setSaveError] = useState("");
 
     useEffect(() => {
+        let cancelled = false;
+
         async function load() {
+            setLoading(true);
+            setError("");
+
             try {
-                const [listingData, similarData, favourites] =
-                    await Promise.all([
-                        getListing(id),
-                        getSimilarListings(id),
-                        getFavourites(),
-                    ]);
+                /*
+                 * Listing is the primary resource.
+                 * If it fails, the page cannot be displayed.
+                 */
+                const listingData = await getListing(id);
+
+                if (cancelled) {
+                    return;
+                }
 
                 setListing(listingData);
-                setSimilar(similarData?.results || []);
 
-                setSaved(
-                    (favourites?.results || []).some(
-                        (item) => item.listing_id === id
-                    )
-                );
+                /*
+                 * Saved state comes from local storage.
+                 * It is scoped to the authenticated user.
+                 */
+                if (user?.email) {
+                    const savedListings =
+                        getSavedListings(user.email);
+
+                    setSaved(
+                        savedListings.some(
+                            (item) =>
+                                item.listing_id === id
+                        )
+                    );
+                }
+
+                /*
+                 * Similar listings are optional.
+                 * If this endpoint fails, the main listing
+                 * should still remain usable.
+                 */
+                try {
+                    const similarData =
+                        await getSimilarListings(id);
+
+                    if (!cancelled) {
+                        setSimilar(
+                            similarData?.results || []
+                        );
+                    }
+                } catch {
+                    if (!cancelled) {
+                        setSimilar([]);
+                    }
+                }
             } catch (err) {
-                setError(err.message);
+                if (!cancelled) {
+                    setError(
+                        err.message ||
+                            "Failed to load listing."
+                    );
+                }
             } finally {
-                setLoading(false);
+                if (!cancelled) {
+                    setLoading(false);
+                }
             }
         }
 
         load();
-    }, [id]);
 
-    async function toggleSave() {
-        if (saved) {
-            await removeFavourite(id);
-            setSaved(false);
-        } else {
-            await addFavourite(id);
-            setSaved(true);
+        return () => {
+            cancelled = true;
+        };
+    }, [id, user?.email]);
+
+    function toggleSave() {
+        if (!user?.email || !listing) {
+            return;
+        }
+
+        setSaveError("");
+
+        try {
+            if (saved) {
+                removeSavedListing(
+                    user.email,
+                    listing.listing_id
+                );
+
+                setSaved(false);
+            } else {
+                saveListing(
+                    user.email,
+                    listing
+                );
+
+                setSaved(true);
+            }
+        } catch {
+            setSaveError(
+                "Unable to update saved listings."
+            );
         }
     }
 
     if (loading) {
-        return <div className="p-10">Loading listing...</div>;
+        return (
+            <div className="p-10">
+                Loading listing...
+            </div>
+        );
     }
 
     if (error) {
         return (
             <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-red-700">
                 {error}
+            </div>
+        );
+    }
+
+    if (!listing) {
+        return (
+            <div className="rounded-xl border border-zinc-200 bg-white p-6">
+                Listing not found.
             </div>
         );
     }
@@ -89,6 +175,7 @@ export default function ListingDetail() {
             </Link>
 
             <div className="mt-5 overflow-hidden rounded-2xl border border-zinc-200 bg-white">
+                {/* Header */}
                 <div className="border-b border-zinc-200 p-6 lg:p-8">
                     <div className="flex flex-col justify-between gap-5 md:flex-row">
                         <div>
@@ -110,7 +197,7 @@ export default function ListingDetail() {
                             className={`rounded-lg px-5 py-3 text-sm font-semibold ${
                                 saved
                                     ? "bg-zinc-900 text-white"
-                                    : "border border-zinc-300 bg-white text-zinc-800"
+                                    : "border border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50"
                             }`}
                         >
                             {saved
@@ -118,8 +205,15 @@ export default function ListingDetail() {
                                 : "♡ Save listing"}
                         </button>
                     </div>
+
+                    {saveError && (
+                        <p className="mt-3 text-sm text-red-600">
+                            {saveError}
+                        </p>
+                    )}
                 </div>
 
+                {/* Property information */}
                 <div className="grid gap-8 p-6 md:grid-cols-2 lg:p-8">
                     <div>
                         <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
@@ -189,6 +283,7 @@ export default function ListingDetail() {
                         </div>
                     </div>
 
+                    {/* Listing information */}
                     <div>
                         <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
                             Listing
@@ -233,6 +328,7 @@ export default function ListingDetail() {
                     </div>
                 </div>
 
+                {/* Description */}
                 <div className="border-t border-zinc-200 p-6 lg:p-8">
                     <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
                         Description
@@ -244,9 +340,10 @@ export default function ListingDetail() {
                 </div>
             </div>
 
+            {/* Similar listings */}
             {similar.length > 0 && (
                 <section className="mt-8">
-                    <h2 className="text-lg font-bold">
+                    <h2 className="text-lg font-bold text-zinc-900">
                         Similar listings
                     </h2>
 
@@ -254,16 +351,20 @@ export default function ListingDetail() {
                         {similar.slice(0, 4).map((item) => (
                             <Link
                                 key={item.listing_id}
-                                to={`/listings/${item.listing_id}`}
+                                to={`/listings/${encodeURIComponent(
+                                    item.listing_id
+                                )}`}
                                 className="rounded-xl border border-zinc-200 bg-white p-5 hover:shadow-sm"
                             >
-                                <div className="font-semibold">
+                                <div className="font-semibold text-zinc-900">
                                     {item.apartment_name}
                                 </div>
 
                                 <div className="mt-1 text-sm text-zinc-500">
                                     {item.bedroom} BHK ·{" "}
-                                    {formatPrice(item.price)}
+                                    {formatPrice(
+                                        item.price
+                                    )}
                                 </div>
                             </Link>
                         ))}

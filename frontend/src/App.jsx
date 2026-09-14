@@ -6,15 +6,21 @@ import {
 } from "react-router-dom";
 
 import Layout from "./components/Layout";
+
 import Login from "./pages/Login";
 import Listings from "./pages/Listings";
 import ListingDetail from "./pages/ListingDetail";
 import Saved from "./pages/Saved";
 import Rentals from "./pages/Rentals";
+import RentalDetail from "./pages/RentalDetail";
 import Projects from "./pages/Projects";
+import ProjectDetail from "./pages/ProjectDetail";
 import Insights from "./pages/Insights";
 
-function ProtectedRoute({ session, children }) {
+function ProtectedRoute({
+    session,
+    children,
+}) {
     const location = useLocation();
 
     if (!session) {
@@ -22,7 +28,9 @@ function ProtectedRoute({ session, children }) {
             <Navigate
                 to="/login"
                 replace
-                state={{ from: location }}
+                state={{
+                    from: location,
+                }}
             />
         );
     }
@@ -30,10 +38,16 @@ function ProtectedRoute({ session, children }) {
     return children;
 }
 
-export default function App({ session, setSession }) {
+export default function App({
+    session,
+    setSession,
+}) {
     return (
         <Routes>
-            {/* Login */}
+            {/* =========================
+                LOGIN
+            ========================= */}
+
             <Route
                 path="/login"
                 element={
@@ -43,19 +57,29 @@ export default function App({ session, setSession }) {
                             replace
                         />
                     ) : (
-                        <Login onLogin={setSession} />
+                        <Login
+                            onLogin={setSession}
+                        />
                     )
                 }
             />
 
-            {/* Everything else requires authentication */}
+            {/* =========================
+                PROTECTED APPLICATION
+            ========================= */}
+
             <Route
                 path="*"
                 element={
-                    <ProtectedRoute session={session}>
-                        <Layout user={session?.user}>
+                    <ProtectedRoute
+                        session={session}
+                    >
+                        <Layout
+                            user={session?.user}
+                        >
                             <Routes>
-                                {/* Default route */}
+                                {/* HOME */}
+
                                 <Route
                                     path="/"
                                     element={
@@ -66,53 +90,86 @@ export default function App({ session, setSession }) {
                                     }
                                 />
 
-                                {/* Listings */}
+                                {/* LISTINGS */}
+
                                 <Route
                                     path="/listings"
                                     element={
                                         <Listings
-                                            user={session?.user}
+                                            user={
+                                                session?.user
+                                            }
                                         />
                                     }
                                 />
 
-                                {/* Listing detail */}
                                 <Route
                                     path="/listings/:id"
                                     element={
-                                        <ListingDetail />
+                                        <ListingDetail
+                                            user={
+                                                session?.user
+                                            }
+                                        />
                                     }
                                 />
 
-                                {/* Saved */}
+                                {/* SAVED */}
+
                                 <Route
                                     path="/saved"
                                     element={
                                         <Saved
-                                            user={session?.user}
+                                            user={
+                                                session?.user
+                                            }
                                         />
                                     }
                                 />
 
-                                {/* Rentals */}
+                                {/* RENTALS */}
+
                                 <Route
                                     path="/rentals"
-                                    element={<Rentals />}
+                                    element={
+                                        <Rentals />
+                                    }
                                 />
 
-                                {/* Projects */}
+                                <Route
+                                    path="/rentals/:id"
+                                    element={
+                                        <RentalDetail />
+                                    }
+                                />
+
+                                {/* PROJECTS */}
+
                                 <Route
                                     path="/projects"
-                                    element={<Projects />}
+                                    element={
+                                        <Projects />
+                                    }
                                 />
 
-                                {/* Insights */}
+                                <Route
+                                    path="/projects/:id"
+                                    element={
+                                        <ProjectDetail />
+                                    }
+                                />
+
+                                {/* INSIGHTS */}
+
                                 <Route
                                     path="/insights"
-                                    element={<Insights />}
+                                    element={
+                                        <Insights />
+                                    }
                                 />
 
-                                {/* Unknown route */}
+                                {/* FALLBACK */}
+
                                 <Route
                                     path="*"
                                     element={
